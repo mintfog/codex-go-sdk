@@ -112,6 +112,29 @@ func (c *Codex) ForkThread(ctx context.Context, sourceThreadID string, options t
 	if sourceThreadID == "" {
 		return nil, errors.New("source thread id required")
 	}
+	options.LastTurnID = strings.TrimSpace(options.LastTurnID)
+	if options.TruncateBeforeNthUserMessage != nil {
+		if options.LastTurnID != "" {
+			return nil, errors.New("LastTurnID and TruncateBeforeNthUserMessage are mutually exclusive")
+		}
+		ordinal := *options.TruncateBeforeNthUserMessage
+		if ordinal < 0 {
+			return nil, errors.New("truncate user ordinal must be >= 0")
+		}
+		if ordinal > 0 {
+			turns, err := c.readForkTurns(ctx, sourceThreadID)
+			if err != nil {
+				return nil, err
+			}
+			remaining, err := rollbackTurnsAfterUserOrdinal(turns, ordinal)
+			if err != nil {
+				return nil, err
+			}
+			if retained := len(turns) - remaining; retained > 0 {
+				options.LastTurnID = strings.TrimSpace(turns[retained-1].ID)
+			}
+		}
+	}
 	params := buildThreadForkParams(sourceThreadID, options)
 	var response struct {
 		Thread struct {
@@ -123,11 +146,25 @@ func (c *Codex) ForkThread(ctx context.Context, sourceThreadID string, options t
 		return nil, err
 	}
 	threadID := strings.TrimSpace(response.Thread.ID)
-	if threadID == "" {
-		return nil, errors.New("thread/fork did not return thread id")
+	if threadID == "" || threadID == sourceThreadID {
+		return nil, errors.New("thread/fork did not return a new thread id")
 	}
-	if options.TruncateBeforeNthUserMessage != nil {
-		rollbackTurns, err := rollbackTurnsAfterUserOrdinal(response.Thread.Turns, *options.TruncateBeforeNthUserMessage)
+	if options.LastTurnID != "" || options.TruncateBeforeNthUserMessage != nil {
+		turns := response.Thread.Turns
+		if len(turns) == 0 {
+			var err error
+			turns, err = c.readForkTurns(ctx, threadID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var rollbackTurns int
+		var err error
+		if options.LastTurnID != "" {
+			rollbackTurns, err = rollbackTurnsAfterLastTurnID(turns, options.LastTurnID)
+		} else {
+			rollbackTurns, err = rollbackTurnsAfterUserOrdinal(turns, *options.TruncateBeforeNthUserMessage)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -236,6 +273,9 @@ func buildThreadForkParams(sourceThreadID string, options types.ThreadForkOption
 	params := map[string]interface{}{
 		"threadId": strings.TrimSpace(sourceThreadID),
 	}
+	if lastTurnID := strings.TrimSpace(options.LastTurnID); lastTurnID != "" {
+		params["lastTurnId"] = lastTurnID
+	}
 	appendThreadContextParams(params, args, args.ModelProvider)
 	if effort := strings.TrimSpace(args.ModelReasoningEffort); effort != "" {
 		params["config"] = map[string]interface{}{"model_reasoning_effort": effort}
@@ -244,7 +284,34 @@ func buildThreadForkParams(sourceThreadID string, options types.ThreadForkOption
 }
 
 type forkTurn struct {
+	ID    string            `json:"id"`
 	Items []json.RawMessage `json:"items"`
+}
+
+func (c *Codex) readForkTurns(ctx context.Context, threadID string) ([]forkTurn, error) {
+	var response struct {
+		Thread struct {
+			Turns []forkTurn `json:"turns"`
+		} `json:"thread"`
+	}
+	if err := c.AppServerRPCTyped(ctx, "thread/read", map[string]interface{}{
+		"threadId": threadID, "includeTurns": true,
+	}, &response); err != nil {
+		return nil, err
+	}
+	return response.Thread.Turns, nil
+}
+
+// Old servers can silently ignore lastTurnId. Verify the returned boundary and
+// roll back only the extra turns on those servers. Modern servers fork the
+// requested prefix atomically, for both legacy and paginated histories.
+func rollbackTurnsAfterLastTurnID(turns []forkTurn, lastTurnID string) (int, error) {
+	for i, turn := range turns {
+		if turn.ID == lastTurnID {
+			return len(turns) - i - 1, nil
+		}
+	}
+	return 0, errors.New("forked history is missing the requested last turn")
 }
 
 func rollbackTurnsAfterUserOrdinal(turns []forkTurn, ordinal int) (int, error) {

@@ -228,8 +228,12 @@ type ThreadOptions struct {
 // ThreadForkOptions represents options for forking an existing thread.
 type ThreadForkOptions struct {
 	ThreadOptions
+	// LastTurnID forks through this completed turn, inclusive. It cannot be
+	// combined with TruncateBeforeNthUserMessage.
+	LastTurnID string
 	// TruncateBeforeNthUserMessage cuts the forked history strictly before the
-	// nth user message. The index is zero-based.
+	// nth user message. The index is zero-based. Positive ordinals are resolved
+	// to LastTurnID before forking; zero retains the legacy rollback behavior.
 	TruncateBeforeNthUserMessage *int
 }
 

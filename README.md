@@ -204,6 +204,13 @@ Notes:
 - `CollaborationMode` only applies to app-server `turn/start`. CLI transport ignores it.
 - `DeveloperInstructions` only applies to app-server transport. CLI transport ignores it.
 
+`ForkThread` accepts `ThreadForkOptions.LastTurnID` to fork through a completed turn,
+inclusive. Alternatively, `TruncateBeforeNthUserMessage` resolves a zero-based user
+message boundary into a turn ID before forking. These options are mutually exclusive.
+The SDK sends `lastTurnId` directly to modern app servers and checks the returned
+history. Older servers that ignore the field are handled with `thread/rollback`;
+zero ordinals and histories without turn IDs retain the legacy rollback path.
+
 Plan mode example:
 
 ```go

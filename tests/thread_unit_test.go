@@ -24,7 +24,7 @@ func (m *mockRPCExec) RPCCall(_ context.Context, method string, params interface
 	switch method {
 	case "thread/start":
 		return json.RawMessage(`{"thread":{"id":"thread-goal-1"}}`), nil
-	case "thread/fork":
+	case "thread/read", "thread/fork":
 		return json.RawMessage(`{"thread":{"id":"thread-fork-1","turns":[{"items":[{"type":"userMessage","text":"one"}]},{"items":[{"type":"userMessage","text":"two"}]},{"items":[{"type":"message","role":"user","text":"three"}]},{"items":[{"type":"user_message","text":"four"}]},{"items":[{"type":"agentMessage","text":"done"}]}]}}`), nil
 	case "thread/rollback":
 		return json.RawMessage(`{"thread":{"id":"thread-fork-1"}}`), nil
@@ -192,10 +192,10 @@ func TestForkThreadTruncatesWithRollback(t *testing.T) {
 	if thread == nil || thread.ID() == nil || *thread.ID() != "thread-fork-1" {
 		t.Fatalf("forked thread id = %#v", thread)
 	}
-	if len(exec.calls) != 2 {
-		t.Fatalf("expected 2 RPC calls, got %d", len(exec.calls))
+	if len(exec.calls) != 3 {
+		t.Fatalf("expected 3 RPC calls, got %d", len(exec.calls))
 	}
-	call := exec.calls[0]
+	call := exec.calls[1]
 	if call.method != "thread/fork" {
 		t.Fatalf("method = %q, want thread/fork", call.method)
 	}
@@ -219,7 +219,7 @@ func TestForkThreadTruncatesWithRollback(t *testing.T) {
 	if got := config["model_reasoning_effort"]; got != "high" {
 		t.Fatalf("model_reasoning_effort = %#v", got)
 	}
-	rollbackCall := exec.calls[1]
+	rollbackCall := exec.calls[2]
 	if rollbackCall.method != "thread/rollback" {
 		t.Fatalf("method = %q, want thread/rollback", rollbackCall.method)
 	}
