@@ -171,12 +171,9 @@ func TestNormalizeReasoningEffortForModelKeepsMaxUltraForSupportedModels(t *test
 			types.ModelReasoningEffortMax,
 			types.ModelReasoningEffortUltra,
 		} {
-			args := normalizeReasoningEffortForModel(CodexExecArgs{
-				Model:                model,
-				ModelReasoningEffort: string(effort),
-			})
-			if args.ModelReasoningEffort != string(effort) {
-				t.Fatalf("%s ModelReasoningEffort = %q, want %q", model, args.ModelReasoningEffort, effort)
+			got := normalizeReasoningEffortForModel(model, string(effort))
+			if got != string(effort) {
+				t.Fatalf("%s ModelReasoningEffort = %q, want %q", model, got, effort)
 			}
 		}
 	}
@@ -187,22 +184,17 @@ func TestNormalizeReasoningEffortForModelDowngradesMaxUltraForOlderModels(t *tes
 		types.ModelReasoningEffortMax,
 		types.ModelReasoningEffortUltra,
 	} {
-		args := normalizeReasoningEffortForModel(CodexExecArgs{
-			Model:                "gpt-5.3-codex",
-			ModelReasoningEffort: string(effort),
-		})
-		if args.ModelReasoningEffort != string(types.ModelReasoningEffortXHigh) {
-			t.Fatalf("ModelReasoningEffort = %q, want %q", args.ModelReasoningEffort, types.ModelReasoningEffortXHigh)
+		got := normalizeReasoningEffortForModel("gpt-5.3-codex", string(effort))
+		if got != string(types.ModelReasoningEffortXHigh) {
+			t.Fatalf("ModelReasoningEffort = %q, want %q", got, types.ModelReasoningEffortXHigh)
 		}
 	}
 }
 
 func TestNormalizeReasoningEffortForModelKeepsDefaultModel(t *testing.T) {
-	args := normalizeReasoningEffortForModel(CodexExecArgs{
-		ModelReasoningEffort: string(types.ModelReasoningEffortUltra),
-	})
-	if args.ModelReasoningEffort != string(types.ModelReasoningEffortUltra) {
-		t.Fatalf("ModelReasoningEffort = %q, want %q", args.ModelReasoningEffort, types.ModelReasoningEffortUltra)
+	got := normalizeReasoningEffortForModel("", string(types.ModelReasoningEffortUltra))
+	if got != string(types.ModelReasoningEffortUltra) {
+		t.Fatalf("ModelReasoningEffort = %q, want %q", got, types.ModelReasoningEffortUltra)
 	}
 }
 

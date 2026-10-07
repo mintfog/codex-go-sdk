@@ -191,7 +191,7 @@ func (c *CodexExec) Run(args CodexExecArgs) <-chan ExecResult {
 		}()
 
 		ctx := resolveContext(args.Context)
-		args = normalizeReasoningEffortForModel(args)
+		args.ModelReasoningEffort = normalizeReasoningEffortForModel(args.Model, args.ModelReasoningEffort)
 		commandArgs := buildCommandArgs(args)
 
 		c.logf("codex exec: %s %s", c.executablePath, strings.Join(commandArgs, " "))

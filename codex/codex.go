@@ -260,7 +260,7 @@ func (c *Codex) ProcessID() int {
 }
 
 func buildThreadForkParams(sourceThreadID string, options types.ThreadForkOptions) map[string]interface{} {
-	args := normalizeReasoningEffortForModel(CodexExecArgs{
+	args := CodexExecArgs{
 		Model:                 strings.TrimSpace(options.Model),
 		ModelProvider:         strings.TrimSpace(options.ModelProvider),
 		FastService:           options.FastService,
@@ -269,7 +269,7 @@ func buildThreadForkParams(sourceThreadID string, options types.ThreadForkOption
 		SandboxMode:           string(options.SandboxMode),
 		ApprovalPolicy:        string(options.ApprovalPolicy),
 		ModelReasoningEffort:  string(options.ModelReasoningEffort),
-	})
+	}
 	params := map[string]interface{}{
 		"threadId": strings.TrimSpace(sourceThreadID),
 	}
@@ -277,7 +277,7 @@ func buildThreadForkParams(sourceThreadID string, options types.ThreadForkOption
 		params["lastTurnId"] = lastTurnID
 	}
 	appendThreadContextParams(params, args, args.ModelProvider)
-	if effort := strings.TrimSpace(args.ModelReasoningEffort); effort != "" {
+	if effort := normalizeReasoningEffortForModel(args.Model, args.ModelReasoningEffort); effort != "" {
 		params["config"] = map[string]interface{}{"model_reasoning_effort": effort}
 	}
 	return params
